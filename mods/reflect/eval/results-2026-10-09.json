@@ -1,0 +1,160 @@
+{
+  "run_at": "2026-10-09T06:20:37.658Z",
+  "floor": 0.8,
+  "arms": {
+    "laya": {
+      "dev": {
+        "cases": 30,
+        "precision": 1,
+        "recall": 0.14285714285714285,
+        "quiet_on_none": 1,
+        "abstained": 22,
+        "errors": 0,
+        "mean_ms": 3898,
+        "p95_ms": 5228,
+        "missed": [
+          {
+            "id": "c1",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.4359
+          },
+          {
+            "id": "c2",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.6481
+          },
+          {
+            "id": "c3",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.4217
+          },
+          {
+            "id": "c4",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.5545
+          },
+          {
+            "id": "c5",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.7009
+          },
+          {
+            "id": "c6",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.6718
+          },
+          {
+            "id": "c7",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.5933
+          },
+          {
+            "id": "c8",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.4571
+          },
+          {
+            "id": "v1",
+            "label": "convention",
+            "kind": null,
+            "confidence": 0.7655
+          },
+          {
+            "id": "v3",
+            "label": "convention",
+            "kind": null,
+            "confidence": 0.6202
+          },
+          {
+            "id": "v5",
+            "label": "convention",
+            "kind": null,
+            "confidence": 0.7465
+          },
+          {
+            "id": "v6",
+            "label": "convention",
+            "kind": null,
+            "confidence": 0.3678
+          }
+        ]
+      },
+      "heldout": {
+        "cases": 14,
+        "precision": null,
+        "recall": 0,
+        "quiet_on_none": 1,
+        "abstained": 10,
+        "errors": 0,
+        "mean_ms": 2874,
+        "p95_ms": 3138,
+        "missed": [
+          {
+            "id": "h1",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.462
+          },
+          {
+            "id": "h2",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.3803
+          },
+          {
+            "id": "h3",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.5139
+          },
+          {
+            "id": "h4",
+            "label": "correction",
+            "kind": null,
+            "confidence": 0.4145
+          },
+          {
+            "id": "h5",
+            "label": "convention",
+            "kind": null,
+            "confidence": 0.7
+          },
+          {
+            "id": "h6",
+            "label": "convention",
+            "kind": null,
+            "confidence": 0.5146
+          },
+          {
+            "id": "h7",
+            "label": "convention",
+            "kind": null,
+            "confidence": 0.512
+          }
+        ]
+      },
+      "doc_pick": {
+        "cases": 12,
+        "accuracy": 0.9166666666666666,
+        "missed": [
+          {
+            "id": "p10",
+            "chosen": "none",
+            "ok": false,
+            "ms": 1028.1503749999974,
+            "error": null
+          }
+        ]
+      },
+      "gate": "fail"
+    }
+  }
+}
