@@ -6,6 +6,9 @@ const BAND_TEXT = 160;
 const TITLE = 80;
 const BODY = 600;
 const SIMILAR = 0.6;
+const DISMISSED_SIMILAR = 0.4;
+const DISMISSED = 50;
+const WORKSPACES = 16;
 const THREADS = 64;
 const DOCS = 15;
 
@@ -39,6 +42,10 @@ export function similarity(a, b) {
   let shared = 0;
   for (const word of left) if (right.has(word)) shared += 1;
   return shared / (left.size + right.size - shared);
+}
+
+export function wasDismissed(list, text) {
+  return list.some((old) => similarity(old, text) >= DISMISSED_SIMILAR);
 }
 
 export function bandOf(open) {
@@ -90,10 +97,19 @@ export function pickDoc(offered, answer) {
 
 export function createReflect({ call, log }) {
   const open = new Map();
+  const dismissed = new Map();
   let sequence = 0;
   function remember(threadId, value) {
     if (!open.has(threadId) && open.size >= THREADS) open.delete(open.keys().next().value);
     open.set(threadId, value);
+  }
+  function dismiss(workspaceId, texts) {
+    const list = dismissed.get(workspaceId) ?? [];
+    dismissed.delete(workspaceId);
+    for (const text of texts) if (!list.includes(text)) list.push(text);
+    while (list.length > DISMISSED) list.shift();
+    if (dismissed.size >= WORKSPACES) dismissed.delete(dismissed.keys().next().value);
+    dismissed.set(workspaceId, list);
   }
   async function save(event, current, action, text) {
     if (action === "rule") {
@@ -112,11 +128,12 @@ export function createReflect({ call, log }) {
       "prompt.submit": async (event) => {
         const said = typeof event.data.text === "string" ? event.data.text : "";
         if (!said.trim()) return [];
+        const text = distill(said);
+        if (!text) return [];
+        if (wasDismissed(dismissed.get(event.workspace_id) ?? [], text)) return [];
         const verdict = await call("decide", { thread_id: event.thread_id, preset: "session_moment", said, before: typeof event.data.before === "string" ? event.data.before : "", interrupted: event.data.interrupted === true });
         const kind = isRecord(verdict) && typeof verdict.kind === "string" ? verdict.kind : null;
         if (kind === null || !KINDS.has(kind)) return [];
-        const text = distill(said);
-        if (!text) return [];
         const source = isRecord(verdict) && typeof verdict.source === "string" ? verdict.source : null;
         const current = open.get(event.thread_id);
         if (current && similarity(current.text, text) >= SIMILAR) {
@@ -125,7 +142,7 @@ export function createReflect({ call, log }) {
           return [show(event.thread_id, current)];
         }
         sequence += 1;
-        const next = { id: `r${sequence}`, text, kind, count: 1, source };
+        const next = { id: `r${sequence}`, text, kind, count: 1, source, asked: [text] };
         remember(event.thread_id, next);
         return [show(event.thread_id, next)];
       },
@@ -136,11 +153,15 @@ export function createReflect({ call, log }) {
         const action = typeof event.data.action === "string" ? event.data.action : "";
         const edited = typeof event.data.text === "string" && event.data.text.trim() ? event.data.text.replace(/\s+/g, " ").trim().slice(0, BODY) : null;
         if (action === "skip") {
+          dismiss(event.workspace_id, current.asked);
           open.delete(event.thread_id);
           return [clear(event.thread_id)];
         }
         if (action === "edit") {
-          if (edited) current.text = edited;
+          if (edited) {
+            current.text = edited;
+            if (!current.asked.includes(edited)) current.asked.push(edited);
+          }
           return [show(event.thread_id, current)];
         }
         if (action !== "rule" && action !== "context") return [];

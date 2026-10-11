@@ -17,9 +17,9 @@ function harness(answers) {
   };
   wire = createWire({ write, setup: (api) => createReflect(api) });
   let id = 0;
-  const send = async (hook, data) => {
+  const send = async (hook, data, { thread = "t1", workspace = "ws" } = {}) => {
     id += 1;
-    await wire.feed(JSON.stringify({ type: "event", id, hook, thread_id: "t1", workspace_id: "ws", data }));
+    await wire.feed(JSON.stringify({ type: "event", id, hook, thread_id: thread, workspace_id: workspace, data }));
     return written.filter((line) => line.type === "reply").at(-1);
   };
   return { calls, written, send };
@@ -106,6 +106,31 @@ test("edit updates the band text; skip clears it; a stale band is cleared", asyn
   assert.equal((await h.send("band.action", { band: "r1", action: "skip" })).publish[0].clear, true);
   assert.equal((await h.send("band.action", { band: "r9", action: "rule" })).publish[0].clear, true);
   assert.ok(!h.calls.some((call) => call.method === "rules.add"));
+});
+
+test("a skipped lesson is not offered again, in any thread of the workspace", async () => {
+  const h = harness(verdict("correction"));
+  await h.send("prompt.submit", { text: "Use pnpm, never npm." });
+  await h.send("band.action", { band: "r1", action: "edit", text: "Always use pnpm in this repo." });
+  await h.send("band.action", { band: "r1", action: "skip" });
+  const decides = () => h.calls.filter((call) => call.method === "decide").length;
+  const before = decides();
+  for (const [text, ids] of [["Use pnpm, never npm.", {}], ["Again: use pnpm, never npm!", {}], ["Always use pnpm in this repo.", {}], ["Use pnpm, never npm.", { thread: "t2" }]]) {
+    assert.deepEqual((await h.send("prompt.submit", { text }, ids)).publish, [], text);
+  }
+  assert.equal(decides(), before, "a dismissed lesson is not even classified again");
+  const other = await h.send("prompt.submit", { text: "Write the failing test first." });
+  assert.equal(other.publish[0].band.text, "Write the failing test first.");
+  const elsewhere = await h.send("prompt.submit", { text: "Use pnpm, never npm." }, { workspace: "ws2" });
+  assert.equal(elsewhere.publish[0].band.text, "Use pnpm, never npm.");
+});
+
+test("saving a lesson does not mute it, only skipping does", async () => {
+  const h = harness(verdict("correction"));
+  await h.send("prompt.submit", { text: "Use pnpm, never npm." });
+  await h.send("band.action", { band: "r1", action: "rule" });
+  const again = await h.send("prompt.submit", { text: "Use pnpm, never npm." });
+  assert.equal(again.publish[0].band.count, 1);
 });
 
 test("a failed save keeps the band and logs why", async () => {
