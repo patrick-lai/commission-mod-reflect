@@ -1,4 +1,4 @@
-import { isRecord } from "./wire.mjs";
+import { errorText, isRecord } from "./wire.mjs";
 
 export const SLOT = "composer.band";
 const KINDS = new Set(["correction", "convention"]);
@@ -11,6 +11,7 @@ const DISMISSED = 50;
 const WORKSPACES = 16;
 const THREADS = 64;
 const DOCS = 15;
+const STORE_TIMEOUT_MS = 2000;
 
 export function distill(said) {
   const text = String(said ?? "").replace(/\s+/g, " ").trim();
@@ -103,13 +104,34 @@ export function createReflect({ call, log }) {
     if (!open.has(threadId) && open.size >= THREADS) open.delete(open.keys().next().value);
     open.set(threadId, value);
   }
-  function dismiss(workspaceId, texts) {
-    const list = dismissed.get(workspaceId) ?? [];
-    dismissed.delete(workspaceId);
-    for (const text of texts) if (!list.includes(text)) list.push(text);
-    while (list.length > DISMISSED) list.shift();
+  async function load(workspaceId) {
+    const cached = dismissed.get(workspaceId);
+    if (cached) return cached;
+    let entry = { list: [], durable: false };
+    try {
+      const stored = await call("mod.store", { workspace_id: workspaceId }, { timeoutMs: STORE_TIMEOUT_MS });
+      const value = isRecord(stored) && isRecord(stored.value) ? stored.value.dismissed : null;
+      entry = { list: Array.isArray(value) ? value.filter((item) => typeof item === "string").slice(-DISMISSED) : [], durable: true };
+    } catch (error) {
+      log("warn", `Reading skipped lessons failed: ${errorText(error)}`);
+    }
     if (dismissed.size >= WORKSPACES) dismissed.delete(dismissed.keys().next().value);
-    dismissed.set(workspaceId, list);
+    dismissed.set(workspaceId, entry);
+    return entry;
+  }
+  async function dismiss(workspaceId, texts) {
+    const entry = await load(workspaceId);
+    for (const text of texts) {
+      const short = text.slice(0, BAND_TEXT);
+      if (!entry.list.includes(short)) entry.list.push(short);
+    }
+    while (entry.list.length > DISMISSED) entry.list.shift();
+    if (!entry.durable) return;
+    try {
+      await call("mod.store", { workspace_id: workspaceId, value: { dismissed: entry.list } }, { timeoutMs: STORE_TIMEOUT_MS });
+    } catch (error) {
+      log("warn", `Saving skipped lessons failed: ${errorText(error)}`);
+    }
   }
   async function save(event, current, action, text) {
     if (action === "rule") {
@@ -130,7 +152,7 @@ export function createReflect({ call, log }) {
         if (!said.trim()) return [];
         const text = distill(said);
         if (!text) return [];
-        if (wasDismissed(dismissed.get(event.workspace_id) ?? [], text)) return [];
+        if (wasDismissed((await load(event.workspace_id)).list, text)) return [];
         const verdict = await call("decide", { thread_id: event.thread_id, preset: "session_moment", said, before: typeof event.data.before === "string" ? event.data.before : "", interrupted: event.data.interrupted === true });
         const kind = isRecord(verdict) && typeof verdict.kind === "string" ? verdict.kind : null;
         if (kind === null || !KINDS.has(kind)) return [];
@@ -153,7 +175,7 @@ export function createReflect({ call, log }) {
         const action = typeof event.data.action === "string" ? event.data.action : "";
         const edited = typeof event.data.text === "string" && event.data.text.trim() ? event.data.text.replace(/\s+/g, " ").trim().slice(0, BODY) : null;
         if (action === "skip") {
-          dismiss(event.workspace_id, current.asked);
+          await dismiss(event.workspace_id, current.asked);
           open.delete(event.thread_id);
           return [clear(event.thread_id)];
         }

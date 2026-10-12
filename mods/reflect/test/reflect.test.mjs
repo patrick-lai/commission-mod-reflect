@@ -47,7 +47,7 @@ test("a correction above the floor shows one band naming its source", async () =
   assert.equal(published.band.text, "No, use pnpm, never npm.");
   assert.equal(published.band.source, "Laya");
   assert.deepEqual(published.band.actions.map((action) => [action.name, Boolean(action.primary)]), [["rule", true], ["context", false], ["edit", false], ["skip", false]]);
-  assert.deepEqual(h.calls[0].params, { thread_id: "t1", preset: "session_moment", said: "No, use pnpm, never npm.", before: "I ran npm install", interrupted: false });
+  assert.deepEqual(h.calls.find((call) => call.method === "decide").params, { thread_id: "t1", preset: "session_moment", said: "No, use pnpm, never npm.", before: "I ran npm install", interrupted: false });
 });
 
 test("abstentions, other kinds and empty prompts show nothing", async () => {
@@ -123,6 +123,40 @@ test("a skipped lesson is not offered again, in any thread of the workspace", as
   assert.equal(other.publish[0].band.text, "Write the failing test first.");
   const elsewhere = await h.send("prompt.submit", { text: "Use pnpm, never npm." }, { workspace: "ws2" });
   assert.equal(elsewhere.publish[0].band.text, "Use pnpm, never npm.");
+});
+
+function shelf() {
+  const stored = new Map();
+  return (method, params) => {
+    if (method === "decide") return { kind: "correction", source: "Laya" };
+    if (method !== "mod.store") return {};
+    if ("value" in params) stored.set(params.workspace_id, params.value);
+    return { value: stored.get(params.workspace_id) ?? null };
+  };
+}
+
+test("a skipped lesson stays skipped after the worker restarts", async () => {
+  const answers = shelf();
+  const first = harness(answers);
+  await first.send("prompt.submit", { text: "Use pnpm, never npm." });
+  await first.send("band.action", { band: "r1", action: "skip" });
+  const written = first.calls.filter((call) => call.method === "mod.store" && "value" in call.params);
+  assert.deepEqual(written.at(-1).params, { workspace_id: "ws", value: { dismissed: ["Use pnpm, never npm."] } });
+  const restarted = harness(answers);
+  assert.deepEqual((await restarted.send("prompt.submit", { text: "Again: use pnpm, never npm!" })).publish, []);
+  assert.equal(restarted.calls.filter((call) => call.method === "mod.store").length, 1, "the list is read once per workspace");
+  assert.ok(!restarted.calls.some((call) => call.method === "decide"));
+  const other = await restarted.send("prompt.submit", { text: "Write the failing test first." });
+  assert.equal(other.publish[0].band.text, "Write the failing test first.");
+});
+
+test("an unreadable store keeps skips in memory and never overwrites what is stored", async () => {
+  const h = harness((method) => (method === "decide" ? { kind: "correction" } : method === "mod.store" ? new Error("store is down") : {}));
+  await h.send("prompt.submit", { text: "Use pnpm, never npm." });
+  await h.send("band.action", { band: "r1", action: "skip" });
+  assert.deepEqual((await h.send("prompt.submit", { text: "Use pnpm, never npm." })).publish, []);
+  assert.ok(!h.calls.some((call) => call.method === "mod.store" && "value" in call.params));
+  assert.ok(h.written.some((line) => line.type === "log" && line.message.includes("store is down")));
 });
 
 test("saving a lesson does not mute it, only skipping does", async () => {

@@ -2,7 +2,7 @@
 
 A built-in [CommissionAI](https://github.com/patrick-lai) mod (protocol 3). Offers to keep a correction or convention for later sessions.
 
-When you correct the agent or state a convention, Laya or JEV (through the daemon, no keys in the mod) classifies the message; above the 0.8 floor a band appears over the composer: Save as coding rule, Save to Context, Edit or Skip. Below the floor it stays quiet. Repeats merge into one band with a count. Save to Context appends to the best-fitting agent-managed note or starts a new one; it never touches notes you wrote, AGENTS.md or CLAUDE.md. `eval/` holds the frozen eval and its protocol (`node eval/run.mjs`).
+When you correct the agent or state a convention, Laya or JEV (through the daemon, no keys in the mod) classifies the message; above the 0.8 floor a band appears over the composer: Save as coding rule, Save to Context, Edit or Skip. Below the floor it stays quiet. Repeats merge into one band with a count. A lesson you skip is not offered again in that repository, including similar wording and after a restart: Reflect keeps a short list through the daemon's `mod.store`, so it needs an app that has that capability. Save to Context appends to the best-fitting agent-managed note or starts a new one; it never touches notes you wrote, AGENTS.md or CLAUDE.md. `eval/` holds the frozen eval and its protocol (`node eval/run.mjs`).
 
 ## Rules it follows
 - It only adds beside a core surface; with it off, crashed or outdated, the app looks and behaves exactly as without it.

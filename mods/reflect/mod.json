@@ -1,12 +1,12 @@
 {
   "id": "reflect",
   "name": "Reflect",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "protocol": 3,
   "description": "When you correct the agent or state a convention, offers to save it as a coding rule or a Context note. Nothing is saved until you press a button.",
   "worker": {"command": ["node", "worker.mjs"]},
   "hooks": ["prompt.submit", "band.action"],
-  "permissions": ["decide", "rules.add", "context.docs", "context.draft", "mod.publish"],
+  "permissions": ["decide", "rules.add", "context.docs", "context.draft", "mod.publish", "mod.store"],
   "slots": ["composer.band"],
   "always_on": true
 }
